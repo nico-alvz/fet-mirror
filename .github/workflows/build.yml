@@ -3,29 +3,12 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
-  build-gui:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Qt6
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.10.3'
-
-      - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        # Limited to avoid the runner's parallel compile of the combined
-        # interface mocs_compilation.cpp translation unit getting OOM-killed.
-        run: cmake --build build --parallel 2
-
   build-cli-only:
     runs-on: ubuntu-latest
     steps:
@@ -40,4 +23,80 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOMMAND_LINE_ONLY=ON
 
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build build --parallel 2
+
+  build-gui:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_suffix: linux-x86_64
+            archive_ext: tar.gz
+          - os: windows-latest
+            asset_suffix: windows-x86_64
+            archive_ext: zip
+          - os: macos-latest
+            asset_suffix: macos-x86_64
+            archive_ext: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.3'
+
+      - name: Read version
+        shell: bash
+        run: echo "FETVER=$(cat VERSION)" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        # -j limited on every OS to avoid the runner OOM-killing the parallel
+        # compile of the combined interface mocs_compilation.cpp unit.
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Install (bundle Qt deps via qt_generate_deploy_app_script)
+        run: cmake --install build --config Release --prefix "${{ runner.temp }}/dist/fet-${{ env.FETVER }}"
+
+      - name: Package (tar.gz)
+        if: matrix.archive_ext == 'tar.gz'
+        shell: bash
+        run: |
+          cd "${{ runner.temp }}/dist"
+          tar czf "$GITHUB_WORKSPACE/fet-${{ env.FETVER }}-${{ matrix.asset_suffix }}.tar.gz" "fet-${{ env.FETVER }}"
+
+      - name: Package (zip)
+        if: matrix.archive_ext == 'zip'
+        shell: bash
+        run: |
+          cd "${{ runner.temp }}/dist"
+          7z a -r "$GITHUB_WORKSPACE/fet-${{ env.FETVER }}-${{ matrix.asset_suffix }}.zip" "fet-${{ env.FETVER }}" || \
+          zip -r "$GITHUB_WORKSPACE/fet-${{ env.FETVER }}-${{ matrix.asset_suffix }}.zip" "fet-${{ env.FETVER }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fet-${{ matrix.asset_suffix }}
+          path: fet-*.${{ matrix.archive_ext }}
+          if-no-files-found: error
+
+  release:
+    needs: [build-gui, build-cli-only]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload build artifacts to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" dist/* --clobber --repo "${{ github.repository }}"
