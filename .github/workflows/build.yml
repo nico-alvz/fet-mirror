@@ -22,7 +22,9 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --parallel
+        # Limited to avoid the runner's parallel compile of the combined
+        # interface mocs_compilation.cpp translation unit getting OOM-killed.
+        run: cmake --build build --parallel 2
 
   build-cli-only:
     runs-on: ubuntu-latest
