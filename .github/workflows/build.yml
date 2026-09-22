@@ -36,6 +36,9 @@ jobs:
           - os: windows-latest
             asset_suffix: windows-x86_64
             archive_ext: zip
+            qt_arch: win64_mingw
+            qt_tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
+            generator: 'MinGW Makefiles'
           - os: macos-latest
             asset_suffix: macos-x86_64
             archive_ext: zip
@@ -47,13 +50,19 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.10.3'
+          arch: ${{ matrix.qt_arch }}
+          tools: ${{ matrix.qt_tools }}
 
       - name: Read version
         shell: bash
         run: echo "FETVER=$(cat VERSION)" >> "$GITHUB_ENV"
 
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        # MSVC hits "compiler limit: blocks nested too deeply" (C1061) on
+        # src/engine/rules.cpp, an upstream file we won't patch since this
+        # is meant to be an unmodified mirror; MinGW/GCC has no such limit,
+        # so Windows builds use it instead of MSVC.
+        run: cmake -B build ${{ matrix.generator && format('-G "{0}"', matrix.generator) || '' }} -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         # -j limited on every OS to avoid the runner OOM-killing the parallel

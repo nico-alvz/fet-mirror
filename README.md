@@ -31,7 +31,7 @@ mirroring.
 ## Building
 
 FET uses Qt6 (>= 6.10) and CMake (>= 3.28), or Qt5 (>= 5.15) with qmake.
-See `README.upstream` for full upstream build instructions.
+See `README` for full upstream build instructions.
 
 CI (`.github/workflows/build.yml`) compiles both the full GUI target and
 the command-line-only target (`-DCOMMAND_LINE_ONLY=ON`) on Linux, Windows
