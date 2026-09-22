@@ -16,8 +16,7 @@ jobs:
       - name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.*'
-          modules: 'qtsvg'
+          version: '6.10.3'
 
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -33,7 +32,7 @@ jobs:
       - name: Install Qt6
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.*'
+          version: '6.10.3'
 
       - name: Configure (command-line only)
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOMMAND_LINE_ONLY=ON
