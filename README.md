@@ -33,11 +33,11 @@ mirroring.
 FET uses Qt6 (>= 6.10) and CMake (>= 3.28), or Qt5 (>= 5.15) with qmake.
 See `README` for full upstream build instructions.
 
-CI (`.github/workflows/build.yml`) compiles both the full GUI target and
-the command-line-only target (`-DCOMMAND_LINE_ONLY=ON`) on Linux, Windows
-and macOS on every push, as a portability/regression check — there is no
-automated unit test suite upstream (`examples/tests/*.fet` are manual
-timetabling scenario files, not executable tests).
+CI (`.github/workflows/build.yml`) builds both the full GUI target and the
+command-line-only target (`-DCOMMAND_LINE_ONLY=ON`) on Linux, Windows and
+macOS on every push; on a tag push it also packages and releases both —
+there is no automated unit test suite upstream (`examples/tests/*.fet`
+are manual timetabling scenario files, not executable tests).
 
 ## Prebuilt binaries
 
@@ -47,6 +47,14 @@ the original signed source tarball:
 - `fet-7.10.5-linux-x86_64.tar.gz` — built on `ubuntu-latest`
 - `fet-7.10.5-windows-x86_64.zip` — built on `windows-latest`
 - `fet-7.10.5-macos-x86_64.zip` — built on `macos-latest`
+
+plus command-line-only builds (`-DCOMMAND_LINE_ONLY=ON`, no Qt GUI/widgets
+libraries bundled — just the `fet-cl` binary), much smaller and meant for
+headless/scripted use:
+
+- `fet-cl-7.10.5-linux-x86_64.tar.gz`
+- `fet-cl-7.10.5-windows-x86_64.zip`
+- `fet-cl-7.10.5-macos-x86_64.zip`
 
 These are unofficial builds produced by this repo's own CI from the
 unmodified upstream source, for convenience. For official, upstream-signed

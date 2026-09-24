@@ -10,7 +10,23 @@ on:
 
 jobs:
   build-cli-only:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_suffix: linux-x86_64
+            archive_ext: tar.gz
+          - os: windows-latest
+            asset_suffix: windows-x86_64
+            archive_ext: zip
+            qt_arch: win64_mingw
+            qt_tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
+            generator: 'MinGW Makefiles'
+          - os: macos-latest
+            asset_suffix: macos-x86_64
+            archive_ext: zip
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -18,12 +34,44 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.10.3'
+          arch: ${{ matrix.qt_arch }}
+          tools: ${{ matrix.qt_tools }}
+
+      - name: Read version
+        shell: bash
+        run: echo "FETVER=$(cat VERSION)" >> "$GITHUB_ENV"
 
       - name: Configure (command-line only)
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCOMMAND_LINE_ONLY=ON
+        # Same MinGW-on-Windows workaround as build-gui: src/engine/rules.cpp is
+        # shared by both targets and hits MSVC's block-nesting limit (C1061).
+        run: cmake -B build ${{ matrix.generator && format('-G "{0}"', matrix.generator) || '' }} -DCMAKE_BUILD_TYPE=Release -DCOMMAND_LINE_ONLY=ON
 
       - name: Build
-        run: cmake --build build --parallel 2
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Install
+        run: cmake --install build --config Release --prefix "${{ runner.temp }}/dist/fet-cl-${{ env.FETVER }}"
+
+      - name: Package (tar.gz)
+        if: matrix.archive_ext == 'tar.gz'
+        shell: bash
+        run: |
+          cd "${{ runner.temp }}/dist"
+          tar czf "$GITHUB_WORKSPACE/fet-cl-${{ env.FETVER }}-${{ matrix.asset_suffix }}.tar.gz" "fet-cl-${{ env.FETVER }}"
+
+      - name: Package (zip)
+        if: matrix.archive_ext == 'zip'
+        shell: bash
+        run: |
+          cd "${{ runner.temp }}/dist"
+          7z a -r "$GITHUB_WORKSPACE/fet-cl-${{ env.FETVER }}-${{ matrix.asset_suffix }}.zip" "fet-cl-${{ env.FETVER }}" || \
+          zip -r "$GITHUB_WORKSPACE/fet-cl-${{ env.FETVER }}-${{ matrix.asset_suffix }}.zip" "fet-cl-${{ env.FETVER }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fet-cl-${{ matrix.asset_suffix }}
+          path: fet-cl-*.${{ matrix.archive_ext }}
+          if-no-files-found: error
 
   build-gui:
     strategy:
